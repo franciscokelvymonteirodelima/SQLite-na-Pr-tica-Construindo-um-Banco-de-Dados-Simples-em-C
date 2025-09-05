@@ -10,6 +10,56 @@ typedef struct {
     size_t input_length;    // Comprimento real da entrada do usuário
 } InputBuffer;
 
+typedef enum {
+    META_COMMAND_SUCCESS,
+    META_COMMAND_UNRECOGNIZED_COMMAND
+} MetaCommandResult;
+
+typedef enum { PREPARE_SUCCESS, PREPARE_UNRECOGNIZED_STATEMENT } PrepareResult;
+
+MetaCommandResult do_meta_command(InputBuffer* input_buffer){
+    if (strcmp(input_buffer->buffer, ".exit") == 0){
+        exit(EXIT_SUCCESS);
+    } else {
+        return META_COMMAND_UNRECOGNIZED_COMMAND;
+    }
+}
+
+typedef enum { STATEMENT_INSERT, STATEMENT_SELECT } StatementType;
+
+// Estrutura que representa um comando (statement)
+typedef struct {
+    StatementType type;
+} Statement;
+
+// Função que prepara o comando a ser executado
+PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement){
+    if (strncmp(input_buffer->buffer, "insert", 6) == 0)
+    {
+        statement->type = STATEMENT_INSERT;
+        return PREPARE_SUCCESS;
+    }
+    if (strcmp(input_buffer->buffer, "select") == 0)
+    {
+        statement->type = STATEMENT_SELECT;
+        return PREPARE_SUCCESS;
+    }
+
+    return PREPARE_UNRECOGNIZED_STATEMENT;
+}
+
+// Função que executa o comando preparado
+void execute_statement(Statement* statement){
+    switch(statement->type){
+        case STATEMENT_INSERT:
+            printf("This is where we would perform an insert.\n");
+            break;
+        case STATEMENT_SELECT:
+            printf("This is where we would perform a select.\n");
+            break; 
+    }
+}
+
 // Função que inicializa e aloca um novo InputBuffer
 InputBuffer* new_input_buffer() {
     InputBuffer* input_buffer = malloc(sizeof(InputBuffer));
@@ -31,7 +81,7 @@ void read_input(InputBuffer* input_buffer) {
     size_t bytes_read = getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
 
     if (bytes_read <= 0) {
-        printf("Erro na leitura da entrada\n");
+        printf("Error reading input\n");
         exit(EXIT_FAILURE);
     }
 
@@ -56,13 +106,26 @@ int main(int argc, char* argv[]) {
         print_prompt();             // Mostra o prompt
         read_input(input_buffer);   // Lê a entrada do usuário
 
-        // Se o usuário digitar ".exit", encerra o programa
-        if (strcmp(input_buffer->buffer, ".exit") == 0) {
-            close_input_buffer(input_buffer);
-            exit(EXIT_SUCCESS);
-        } else {
-            // Caso contrário, apenas exibe o que foi digitado
-            printf("Você digitou: %s\n", input_buffer->buffer);
+        if (input_buffer->buffer[0] == '.') {
+            switch(do_meta_command(input_buffer)){
+                case META_COMMAND_SUCCESS:
+                    continue;
+                case META_COMMAND_UNRECOGNIZED_COMMAND:
+                    printf("Unrecognized command '%s'\n", input_buffer->buffer);
+                    continue;
+            }
         }
+
+        Statement statement;
+        switch (prepare_statement(input_buffer, &statement)){
+            case PREPARE_SUCCESS:
+                break;
+            case PREPARE_UNRECOGNIZED_STATEMENT:
+                printf("Unrecognized keyword at start of '%s'.\n", input_buffer->buffer);
+                continue;
+        }
+
+        execute_statement(&statement);
+        printf("Executed.\n");
     }
 }
